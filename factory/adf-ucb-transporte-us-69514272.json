@@ -1,0 +1,11 @@
+{
+	"name": "adf-ucb-transporte-us-69514272",
+	"properties": {
+		"trustModeClaimForMi": {
+			"value": "Disabled",
+			"editable": true,
+			"isExplicitlySet": false
+		}
+	},
+	"location": "brazilsouth"
+}
