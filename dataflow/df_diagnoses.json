@@ -1,0 +1,68 @@
+{
+	"name": "df_diagnoses",
+	"properties": {
+		"folder": {
+			"name": "silver"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "silver_diagnoses",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "silver_diagnoses",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [],
+			"scriptLines": [
+				"source(output(",
+				"          diagnosis_id as integer,",
+				"          admission_id as integer,",
+				"          icd_code as string,",
+				"          diagnosis_description as string,",
+				"          severity as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     query: 'SELECT\\n    CAST(diagnosis_id AS INT) AS diagnosis_id,\\n    CAST(admission_id AS INT) AS admission_id,\\n    UPPER(\\n        REPLACE(\\n            REPLACE(\\n                REPLACE(\\n                    LTRIM(RTRIM(CAST(icd_code AS VARCHAR(100)))),\\n                    \\'-\\', \\'.\\'\\n                ),\\n                \\' ,\\', \\',\\'\\n            ),\\n            \\', \\', \\', \\'\\n        )\\n    ) AS icd_code,\\n    CASE\\n        WHEN diagnosis_description IS NULL OR LTRIM(RTRIM(CAST(diagnosis_description AS NVARCHAR(255)))) = N\\'\\'\\n            THEN N\\'No Especificado\\'\\n        ELSE UPPER(LEFT(LTRIM(RTRIM(CAST(diagnosis_description AS NVARCHAR(255)))), 1))\\n             + SUBSTRING(LTRIM(RTRIM(CAST(diagnosis_description AS NVARCHAR(255)))), 2, LEN(LTRIM(RTRIM(CAST(diagnosis_description AS NVARCHAR(255))))))\\n    END AS diagnosis_description,\\n    CASE\\n        WHEN severity IS NULL OR LTRIM(RTRIM(CAST(severity AS VARCHAR(50)))) = \\'\\'\\n            THEN \\'No Especificado\\'\\n        ELSE UPPER(LEFT(LTRIM(RTRIM(CAST(severity AS VARCHAR(50)))), 1))\\n             + LOWER(SUBSTRING(LTRIM(RTRIM(CAST(severity AS VARCHAR(50)))), 2, LEN(LTRIM(RTRIM(CAST(severity AS VARCHAR(50)))))))\\n    END AS severity\\nFROM bronze.diagnoses\\nWHERE diagnosis_id IS NOT NULL\\n  AND admission_id IS NOT NULL\\n  AND icd_code IS NOT NULL\\n  AND LTRIM(RTRIM(CAST(icd_code AS VARCHAR(100)))) <> \\'\\'',",
+				"     format: 'query') ~> source1",
+				"source1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          diagnosis_id as integer,",
+				"          admission_id as integer,",
+				"          icd_code as string,",
+				"          diagnosis_description as string,",
+				"          severity as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          diagnosis_id,",
+				"          admission_id,",
+				"          icd_code,",
+				"          diagnosis_description,",
+				"          severity",
+				"     )) ~> sink1"
+			]
+		}
+	}
+}

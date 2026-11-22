@@ -1,0 +1,88 @@
+{
+	"name": "df_patients",
+	"properties": {
+		"folder": {
+			"name": "silver"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "silver_patients",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "silver_patients",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "derivedColumn1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          patient_id as integer,",
+				"          full_name as string,",
+				"          gender as string,",
+				"          date_of_birth as date,",
+				"          phone as string,",
+				"          email as string,",
+				"          address as string,",
+				"          insurance_provider as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     query: 'SELECT\\n    TRY_CAST(patient_id AS INT) AS patient_id,\\n    TRIM(CAST(full_name AS NVARCHAR(150))) AS full_name,\\n    CASE\\n        WHEN UPPER(TRIM(CAST(gender AS VARCHAR(20)))) IN (\\'M\\', \\'MALE\\') THEN \\'Male\\'\\n        WHEN UPPER(TRIM(CAST(gender AS VARCHAR(20)))) IN (\\'F\\', \\'FEMALE\\') THEN \\'Female\\'\\n        WHEN gender IS NULL OR TRIM(CAST(gender AS VARCHAR(20))) = \\'\\' THEN \\'No Especificado\\'\\n        ELSE CONCAT(\\n            UPPER(LEFT(TRIM(CAST(gender AS VARCHAR(20))), 1)),\\n            LOWER(SUBSTRING(TRIM(CAST(gender AS VARCHAR(20))), 2, LEN(TRIM(CAST(gender AS VARCHAR(20))))))\\n        )\\n    END AS gender,\\n    COALESCE(\\n        TRY_CONVERT(DATE, TRIM(CAST(date_of_birth AS VARCHAR(60))), 23),\\n        TRY_CONVERT(DATE, TRIM(CAST(date_of_birth AS VARCHAR(60))), 101),\\n        TRY_CONVERT(DATE, TRIM(CAST(date_of_birth AS VARCHAR(60))), 110),\\n        TRY_PARSE(TRIM(CAST(date_of_birth AS VARCHAR(60))) AS DATE USING \\'en-US\\')\\n    ) AS date_of_birth,\\n    CASE\\n        WHEN phone IS NULL\\n             OR LOWER(TRIM(CAST(phone AS VARCHAR(50)))) IN (\\'\\', \\'unknown\\', \\'null\\', \\'n/a\\', \\'none\\')\\n            THEN NULL\\n        ELSE RIGHT(\\n                REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(CAST(phone AS VARCHAR(50))), \\'-\\', \\'\\'), \\'(\\', \\'\\'), \\')\\', \\'\\'), \\'.\\', \\'\\'), \\' \\', \\'\\'),\\n                10\\n             )\\n    END AS phone,\\n    CASE\\n        WHEN email IS NULL\\n             OR LOWER(TRIM(CAST(email AS VARCHAR(150)))) IN (\\'\\', \\'unknown\\', \\'null\\', \\'n/a\\')\\n            THEN NULL\\n        ELSE REPLACE(\\n                REPLACE(LOWER(TRIM(CAST(email AS VARCHAR(150)))), \\',com\\', \\'.com\\'),\\n                \\'@gmial.com\\', \\'@gmail.com\\'\\n             )\\n    END AS email,\\n    NULLIF(TRIM(CAST(address AS NVARCHAR(255))), N\\'\\') AS address,\\n    CASE\\n        WHEN insurance_provider IS NULL\\n             OR TRIM(CAST(insurance_provider AS NVARCHAR(100))) = N\\'\\'\\n            THEN N\\'No Especificado\\'\\n        WHEN LOWER(TRIM(CAST(insurance_provider AS NVARCHAR(100)))) IN (N\\'cigna\\', N\\'cigna health\\')\\n            THEN N\\'Cigna\\'\\n        WHEN LOWER(TRIM(CAST(insurance_provider AS NVARCHAR(100)))) IN (N\\'bluecross\\', N\\'blue cross\\')\\n            THEN N\\'BlueCross\\'\\n        WHEN LOWER(TRIM(CAST(insurance_provider AS NVARCHAR(100)))) = N\\'aetna\\'\\n            THEN N\\'Aetna\\'\\n        WHEN LOWER(TRIM(CAST(insurance_provider AS NVARCHAR(100)))) = N\\'medicaid\\'\\n            THEN N\\'Medicaid\\'\\n        WHEN LOWER(TRIM(CAST(insurance_provider AS NVARCHAR(100)))) = N\\'medicare\\'\\n            THEN N\\'Medicare\\'\\n        WHEN LOWER(TRIM(CAST(insurance_provider AS NVARCHAR(100)))) = N\\'uhc\\'\\n            THEN N\\'UHC\\'\\n        WHEN LOWER(TRIM(CAST(insurance_provider AS NVARCHAR(100)))) IN (N\\'self pay\\', N\\'self-pay\\', N\\'selfpay\\')\\n            THEN N\\'Self Pay\\'\\n        ELSE CONCAT(\\n            UPPER(LEFT(TRIM(CAST(insurance_provider AS NVARCHAR(100))), 1)),\\n            LOWER(SUBSTRING(TRIM(CAST(insurance_provider AS NVARCHAR(100))), 2, LEN(TRIM(CAST(insurance_provider AS NVARCHAR(100))))))\\n        )\\n    END AS insurance_provider\\nFROM bronze.patients\\nWHERE patient_id IS NOT NULL\\n  AND full_name IS NOT NULL\\n  AND TRIM(CAST(full_name AS NVARCHAR(150))) <> N\\'\\'',",
+				"     format: 'query') ~> source1",
+				"source1 derive(patient_id = toInteger(patient_id),",
+				"          full_name = trim(initCap(full_name)),",
+				"          gender = case(   lower(trim(gender)) == 'm' || lower(trim(gender)) == 'male', 'Male',   lower(trim(gender)) == 'f' || lower(trim(gender)) == 'female', 'Female',   'No Especificado' ),",
+				"          phone = iif(   isNull(phone) || length(regexReplace(phone, '[^0-9]', '')) < 10,   toString(null()),   concat(     '(', substring(right(regexReplace(phone, '[^0-9]', ''), 10), 1, 3), ') ',     substring(right(regexReplace(phone, '[^0-9]', ''), 10), 4, 3), '-',     substring(right(regexReplace(phone, '[^0-9]', ''), 10), 7, 4)   ) ),",
+				"          email = iif(isNull(email) || trim(email) == '', toString(null()), lower(trim(email))),",
+				"          address = trim(address),",
+				"          insurance_provider = trim(insurance_provider)) ~> derivedColumn1",
+				"derivedColumn1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          patient_id as integer,",
+				"          full_name as string,",
+				"          gender as string,",
+				"          date_of_birth as date,",
+				"          phone as string,",
+				"          email as string,",
+				"          address as string,",
+				"          insurance_provider as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          patient_id,",
+				"          full_name,",
+				"          gender,",
+				"          date_of_birth,",
+				"          phone,",
+				"          email,",
+				"          address,",
+				"          insurance_provider",
+				"     )) ~> sink1"
+			]
+		}
+	}
+}

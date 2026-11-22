@@ -1,0 +1,71 @@
+{
+	"name": "df_billing",
+	"properties": {
+		"folder": {
+			"name": "silver"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "silver_biling",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "silver_biling",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [],
+			"scriptLines": [
+				"source(output(",
+				"          billing_id as string,",
+				"          admission_id as string,",
+				"          charge_type as string,",
+				"          payment_status as string,",
+				"          amount as decimal(12,2),",
+				"          payment_date as date",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     query: 'SELECT\\n    billing_id,\\n    admission_id,\\n    CASE\\n        WHEN charge_type IS NULL OR LTRIM(RTRIM(CAST(charge_type AS VARCHAR(100)))) = \\'\\'\\n            THEN \\'No Especificado\\'\\n        ELSE UPPER(LEFT(LTRIM(RTRIM(CAST(charge_type AS VARCHAR(100)))), 1))\\n             + LOWER(SUBSTRING(LTRIM(RTRIM(CAST(charge_type AS VARCHAR(100)))), 2, LEN(LTRIM(RTRIM(CAST(charge_type AS VARCHAR(100)))))))\\n    END AS charge_type,\\n    CASE\\n        WHEN payment_status IS NULL OR LTRIM(RTRIM(CAST(payment_status AS VARCHAR(100)))) = \\'\\'\\n            THEN \\'No Especificado\\'\\n        ELSE UPPER(LEFT(LTRIM(RTRIM(CAST(payment_status AS VARCHAR(100)))), 1))\\n             + LOWER(SUBSTRING(LTRIM(RTRIM(CAST(payment_status AS VARCHAR(100)))), 2, LEN(LTRIM(RTRIM(CAST(payment_status AS VARCHAR(100)))))))\\n    END AS payment_status,\\n    TRY_CONVERT(\\n        DECIMAL(12, 2),\\n        LTRIM(RTRIM(\\n            REPLACE(\\n                REPLACE(\\n                    REPLACE(\\n                        REPLACE(CAST(amount AS VARCHAR(60)), \\'USD\\', \\'\\'),\\n                        \\'$\\', \\'\\'\\n                    ),\\n                    \\',\\', \\'\\'\\n                ),\\n                CHAR(160), \\'\\'\\n            )\\n        ))\\n    ) AS amount,\\n    COALESCE(\\n        TRY_CONVERT(DATE, LTRIM(RTRIM(CAST(payment_date AS VARCHAR(60)))), 23),\\n        TRY_CONVERT(DATE, LTRIM(RTRIM(CAST(payment_date AS VARCHAR(60)))), 101),\\n        TRY_CONVERT(DATE, LTRIM(RTRIM(CAST(payment_date AS VARCHAR(60)))), 110),\\n        TRY_CONVERT(DATE, LTRIM(RTRIM(CAST(payment_date AS VARCHAR(60)))), 107),\\n        TRY_CONVERT(DATE, REPLACE(LTRIM(RTRIM(CAST(payment_date AS VARCHAR(60)))), \\'-\\', \\' \\'), 106),\\n        TRY_PARSE(LTRIM(RTRIM(CAST(payment_date AS VARCHAR(60)))) AS DATE USING \\'en-US\\')\\n    ) AS payment_date\\nFROM bronze.billing\\nWHERE billing_id IS NOT NULL',",
+				"     format: 'query') ~> source1",
+				"source1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          billing_id as integer,",
+				"          admission_id as integer,",
+				"          charge_type as string,",
+				"          amount as decimal(12,2),",
+				"          payment_status as string,",
+				"          payment_date as date",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          billing_id,",
+				"          admission_id,",
+				"          charge_type,",
+				"          amount,",
+				"          payment_status,",
+				"          payment_date",
+				"     )) ~> sink1"
+			]
+		}
+	}
+}

@@ -1,0 +1,79 @@
+{
+	"name": "df_admissiones",
+	"properties": {
+		"folder": {
+			"name": "silver"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "silver_admissions",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "silver_admissions",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "derivedColumn1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          admission_id as string,",
+				"          patient_id as string,",
+				"          attending_doctor_id as string,",
+				"          department as string,",
+				"          admission_date as date,",
+				"          discharge_date as date",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     query: 'SELECT\\n    admission_id,\\n    patient_id,\\n    attending_doctor_id,\\n    CASE\\n        WHEN LOWER(LTRIM(RTRIM(CAST(department AS VARCHAR(100))))) IN (\\'cardio\\', \\'cardiolgy\\', \\'cardiology\\')\\n            THEN \\'Cardiology\\'\\n        WHEN LOWER(LTRIM(RTRIM(CAST(department AS VARCHAR(100))))) IN (\\'emergancy\\', \\'emergency\\', \\'er\\')\\n            THEN \\'Emergency\\'\\n        WHEN REPLACE(LOWER(LTRIM(RTRIM(CAST(department AS VARCHAR(100))))), \\' \\', \\'\\') IN (\\'gensurg\\', \\'generalsurgery\\')\\n            THEN \\'General Surgery\\'\\n        WHEN LOWER(LTRIM(RTRIM(CAST(department AS VARCHAR(100))))) IN (\\'neuro\\', \\'neurology\\', \\'nuerology\\')\\n            THEN \\'Neurology\\'\\n        WHEN LOWER(LTRIM(RTRIM(CAST(department AS VARCHAR(100))))) IN (\\'onco\\', \\'oncology\\', \\'oncologyy\\')\\n            THEN \\'Oncology\\'\\n        WHEN LOWER(LTRIM(RTRIM(CAST(department AS VARCHAR(100))))) IN (\\'ortho\\', \\'orthopaedics\\', \\'orthopedics\\')\\n            THEN \\'Orthopedics\\'\\n        WHEN LOWER(LTRIM(RTRIM(CAST(department AS VARCHAR(100))))) IN (\\'paediatrics\\', \\'pediatrics\\', \\'peds\\')\\n            THEN \\'Pediatrics\\'\\n        WHEN department IS NULL OR LTRIM(RTRIM(CAST(department AS VARCHAR(100)))) = \\'\\'\\n            THEN \\'General\\'\\n        ELSE LTRIM(RTRIM(CAST(department AS VARCHAR(100))))\\n    END AS department,\\n    COALESCE(\\n        TRY_CONVERT(DATE, LTRIM(RTRIM(CAST(admission_date AS VARCHAR(60)))), 23),\\n        TRY_CONVERT(DATE, LTRIM(RTRIM(CAST(admission_date AS VARCHAR(60)))), 101),\\n        TRY_CONVERT(DATE, LTRIM(RTRIM(CAST(admission_date AS VARCHAR(60)))), 110),\\n        TRY_CONVERT(DATE, LTRIM(RTRIM(CAST(admission_date AS VARCHAR(60)))), 107),\\n        TRY_CONVERT(DATE, REPLACE(LTRIM(RTRIM(CAST(admission_date AS VARCHAR(60)))), \\'-\\', \\' \\'), 106),\\n        TRY_PARSE(LTRIM(RTRIM(CAST(admission_date AS VARCHAR(60)))) AS DATE USING \\'en-US\\')\\n    ) AS admission_date,\\n    COALESCE(\\n        TRY_CONVERT(DATE, LTRIM(RTRIM(CAST(discharge_date AS VARCHAR(60)))), 23),\\n        TRY_CONVERT(DATE, LTRIM(RTRIM(CAST(discharge_date AS VARCHAR(60)))), 101),\\n        TRY_CONVERT(DATE, LTRIM(RTRIM(CAST(discharge_date AS VARCHAR(60)))), 110),\\n        TRY_CONVERT(DATE, LTRIM(RTRIM(CAST(discharge_date AS VARCHAR(60)))), 107),\\n        TRY_CONVERT(DATE, REPLACE(LTRIM(RTRIM(CAST(discharge_date AS VARCHAR(60)))), \\'-\\', \\' \\'), 106),\\n        TRY_PARSE(LTRIM(RTRIM(CAST(discharge_date AS VARCHAR(60)))) AS DATE USING \\'en-US\\')\\n    ) AS discharge_date\\nFROM bronze.admissions\\nWHERE admission_id IS NOT NULL',",
+				"     format: 'query') ~> source1",
+				"source1 derive(admission_id = toInteger(admission_id),",
+				"          patient_id = toInteger(patient_id),",
+				"          attending_doctor_id = iif(isNull(attending_doctor_id), toInteger(null()), toInteger(attending_doctor_id)),",
+				"          department = iif(isNull(department) || trim(department) == '', 'General', trim(department))) ~> derivedColumn1",
+				"derivedColumn1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          admission_id as integer,",
+				"          patient_id as integer,",
+				"          admission_date as date,",
+				"          discharge_date as date,",
+				"          department as string,",
+				"          attending_doctor_id as integer",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          admission_id,",
+				"          patient_id,",
+				"          admission_date,",
+				"          discharge_date,",
+				"          department,",
+				"          attending_doctor_id",
+				"     )) ~> sink1"
+			]
+		}
+	}
+}
