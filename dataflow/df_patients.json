@@ -27,9 +27,6 @@
 			"transformations": [
 				{
 					"name": "derivedColumn1"
-				},
-				{
-					"name": "Modificarfila1"
 				}
 			],
 			"scriptLines": [
@@ -55,8 +52,7 @@
 				"          email = iif(isNull(email) || trim(email) == '', toString(null()), lower(trim(email))),",
 				"          address = trim(address),",
 				"          insurance_provider = trim(insurance_provider)) ~> derivedColumn1",
-				"derivedColumn1 alterRow() ~> Modificarfila1",
-				"Modificarfila1 sink(allowSchemaDrift: true,",
+				"derivedColumn1 sink(allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     input(",
 				"          patient_id as integer,",
