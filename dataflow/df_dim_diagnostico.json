@@ -1,0 +1,63 @@
+{
+	"name": "df_dim_diagnostico",
+	"properties": {
+		"folder": {
+			"name": "gold"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "silver_diagnoses",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "gold_diagnostico",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [],
+			"scriptLines": [
+				"source(output(",
+				"          codigo_icd as string,",
+				"          descripcion_patologia as string,",
+				"          nivel_severidad as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     query: 'SELECT\\n    CASE s.codigo_compacto\\n        WHEN \\'C50911\\'   THEN \\'C50.911\\'\\n        WHEN \\'E119\\'     THEN \\'E11.9\\'\\n        WHEN \\'F329\\'     THEN \\'F32.9\\'\\n        WHEN \\'I10\\'      THEN \\'I10\\'\\n        WHEN \\'J45909\\'   THEN \\'J45.909\\'\\n        WHEN \\'K219\\'     THEN \\'K21.9\\'\\n        WHEN \\'M545\\'     THEN \\'M54.5\\'\\n        WHEN \\'N390\\'     THEN \\'N39.0\\'\\n        WHEN \\'R51\\'      THEN \\'R51\\'\\n        WHEN \\'S72001A\\'  THEN \\'S72.001A\\'\\n        ELSE s.codigo_compacto\\n    END AS codigo_icd,\\n    COALESCE(NULLIF(MAX(s.diagnosis_description), \\'\\'), \\'Sin descripcion\\') AS descripcion_patologia,\\n    CASE LOWER(COALESCE(NULLIF(MAX(s.severity), \\'\\'), \\'no especificado\\'))\\n        WHEN \\'mild\\'     THEN \\'Mild\\'\\n        WHEN \\'moderate\\' THEN \\'Moderate\\'\\n        WHEN \\'severe\\'   THEN \\'Severe\\'\\n        WHEN \\'critical\\' THEN \\'Critical\\'\\n        ELSE \\'No especificado\\'\\n    END AS nivel_severidad\\nFROM (\\n    SELECT\\n        UPPER(REPLACE(REPLACE(TRIM(sp.value), \\'-\\', \\'\\'), \\'.\\', \\'\\')) AS codigo_compacto,\\n        TRIM(d.diagnosis_description) AS diagnosis_description,\\n        TRIM(d.severity) AS severity\\n    FROM silver.diagnoses d\\n    CROSS APPLY STRING_SPLIT(d.icd_code, \\',\\') sp\\n    WHERE d.icd_code IS NOT NULL\\n      AND TRIM(sp.value) <> \\'\\'\\n) s\\nGROUP BY s.codigo_compacto',",
+				"     format: 'query') ~> source1",
+				"source1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          diagnostico_key as integer,",
+				"          codigo_icd as string,",
+				"          descripcion_patologia as string,",
+				"          nivel_severidad as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          codigo_icd,",
+				"          descripcion_patologia,",
+				"          nivel_severidad",
+				"     )) ~> sink1"
+			]
+		}
+	}
+}

@@ -1,6 +1,9 @@
 {
 	"name": "df_gold_",
 	"properties": {
+		"folder": {
+			"name": "gold"
+		},
 		"type": "MappingDataFlow",
 		"typeProperties": {
 			"sources": [

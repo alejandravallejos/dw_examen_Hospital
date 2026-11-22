@@ -1,0 +1,57 @@
+{
+	"name": "df_dim_departamento",
+	"properties": {
+		"folder": {
+			"name": "gold"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "silver_admissions",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "gold_departamento",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [],
+			"scriptLines": [
+				"source(output(",
+				"          nombre_departamento as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     query: 'SELECT DISTINCT\\n    CASE LOWER(TRIM(department))\\n        WHEN \\'cardio\\'     THEN \\'Cardiology\\'\\n        WHEN \\'cardiolgy\\'  THEN \\'Cardiology\\'\\n        WHEN \\'cardiology\\' THEN \\'Cardiology\\'\\n\\n        WHEN \\'emergancy\\'  THEN \\'Emergency\\'\\n        WHEN \\'emergency\\'  THEN \\'Emergency\\'\\n        WHEN \\'er\\'         THEN \\'Emergency\\'\\n\\n        WHEN \\'gen surg\\'         THEN \\'General Surgery\\'\\n        WHEN \\'general surgery\\'  THEN \\'General Surgery\\'\\n        WHEN \\'generalsurgery\\'   THEN \\'General Surgery\\'\\n\\n        WHEN \\'neuro\\'     THEN \\'Neurology\\'\\n        WHEN \\'neurology\\' THEN \\'Neurology\\'\\n        WHEN \\'nuerology\\' THEN \\'Neurology\\'\\n\\n        WHEN \\'onco\\'      THEN \\'Oncology\\'\\n        WHEN \\'oncology\\'  THEN \\'Oncology\\'\\n        WHEN \\'oncologyy\\' THEN \\'Oncology\\'\\n\\n        WHEN \\'ortho\\'        THEN \\'Orthopedics\\'\\n        WHEN \\'orthopaedics\\' THEN \\'Orthopedics\\'\\n        WHEN \\'orthopedics\\'  THEN \\'Orthopedics\\'\\n\\n        WHEN \\'paediatrics\\' THEN \\'Pediatrics\\'\\n        WHEN \\'pediatrics\\'  THEN \\'Pediatrics\\'\\n\\n        ELSE TRIM(department)\\n    END AS nombre_departamento\\nFROM silver.admissions\\nWHERE department IS NOT NULL\\n  AND TRIM(department) <> \\'\\'',",
+				"     format: 'query') ~> source1",
+				"source1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          departamento_key as integer,",
+				"          nombre_departamento as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          nombre_departamento",
+				"     )) ~> sink1"
+			]
+		}
+	}
+}
