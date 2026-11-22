@@ -1,5 +1,5 @@
 {
-	"name": "df_gold_",
+	"name": "df_dim_paciente",
 	"properties": {
 		"folder": {
 			"name": "gold"
@@ -15,23 +15,75 @@
 					"name": "source1"
 				}
 			],
-			"sinks": [],
-			"transformations": [],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "gold_paciente",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "derivedColumn1"
+				}
+			],
 			"scriptLines": [
 				"source(output(",
-				"          patient_id as integer,",
-				"          full_name as string,",
-				"          gender as string,",
-				"          date_of_birth as date,",
-				"          phone as string,",
-				"          email as string,",
-				"          address as string,",
-				"          insurance_provider as string",
+				"          patient_id_bk as integer,",
+				"          nombre_completo as string,",
+				"          genero as string,",
+				"          fecha_nacimiento as date,",
+				"          rango_etario as string,",
+				"          correo_electronico as string,",
+				"          direccion as string,",
+				"          proveedor_seguro as string",
 				"     ),",
 				"     allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     isolationLevel: 'READ_UNCOMMITTED',",
-				"     format: 'table') ~> source1"
+				"     query: 'SELECT DISTINCT\\n    p.patient_id AS patient_id_bk,\\n    p.full_name AS nombre_completo,\\n    CASE\\n        WHEN UPPER(TRIM(p.gender)) IN (\\'M\\', \\'MASCULINO\\') THEN \\'Masculino\\'\\n        WHEN UPPER(TRIM(p.gender)) IN (\\'F\\', \\'FEMENINO\\') THEN \\'Femenino\\'\\n        ELSE \\'Otro\\'\\n    END AS genero,\\n    CAST(p.date_of_birth AS DATE) AS fecha_nacimiento,\\n    CASE\\n        WHEN p.date_of_birth IS NULL THEN NULL\\n        WHEN DATEDIFF(YEAR, p.date_of_birth, CAST(GETDATE() AS DATE)) <= 18 THEN \\'0-18\\'\\n        WHEN DATEDIFF(YEAR, p.date_of_birth, CAST(GETDATE() AS DATE)) <= 35 THEN \\'19-35\\'\\n        WHEN DATEDIFF(YEAR, p.date_of_birth, CAST(GETDATE() AS DATE)) <= 60 THEN \\'36-60\\'\\n        ELSE \\'60+\\'\\n    END AS rango_etario,\\n    p.email AS correo_electronico,\\n    p.address AS direccion,\\n    COALESCE(NULLIF(TRIM(p.insurance_provider), \\'\\'), N\\'Sin Seguro\\') AS proveedor_seguro\\nFROM silver.patients p\\nWHERE p.patient_id IS NOT NULL',",
+				"     format: 'query') ~> source1",
+				"source1 derive(patient_id_bk = toInteger(patient_id_bk),",
+				"          nombre_completo = iif(isNull(nombre_completo) || trim(nombre_completo) == '', 'Sin Nombre', toString(trim(nombre_completo))),",
+				"          genero = iif(isNull(genero) || trim(genero) == '', 'Otro', toString(trim(genero))),",
+				"          fecha_nacimiento = iif(isNull(fecha_nacimiento), toDate(null()), fecha_nacimiento),",
+				"          rango_etario = iif(isNull(rango_etario) || trim(rango_etario) == '', toString(null()), toString(trim(rango_etario))),",
+				"          correo_electronico = iif(isNull(correo_electronico) || trim(correo_electronico) == '', toString(null()), toString(trim(correo_electronico))),",
+				"          direccion = iif(isNull(direccion) || trim(direccion) == '', toString(null()), toString(trim(direccion))),",
+				"          proveedor_seguro = iif(isNull(proveedor_seguro) || trim(proveedor_seguro) == '', 'Sin Seguro', toString(trim(proveedor_seguro)))) ~> derivedColumn1",
+				"derivedColumn1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          paciente_key as integer,",
+				"          patient_id_bk as integer,",
+				"          nombre_completo as string,",
+				"          genero as string,",
+				"          fecha_nacimiento as date,",
+				"          rango_etario as string,",
+				"          correo_electronico as string,",
+				"          direccion as string,",
+				"          proveedor_seguro as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          patient_id_bk,",
+				"          nombre_completo,",
+				"          genero,",
+				"          fecha_nacimiento,",
+				"          rango_etario,",
+				"          correo_electronico,",
+				"          direccion,",
+				"          proveedor_seguro",
+				"     )) ~> sink1"
 			]
 		}
 	}

@@ -1,0 +1,66 @@
+{
+	"name": "df_dim_servicio_cargo",
+	"properties": {
+		"folder": {
+			"name": "gold"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "silver_biling",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "gold_servicio_cargo",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "derivedColumn1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          tipo_cargo as string,",
+				"          estado_pago as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     query: 'SELECT DISTINCT\\n    UPPER(LEFT(TRIM(b.charge_type), 1)) + LOWER(SUBSTRING(TRIM(b.charge_type), 2, LEN(TRIM(b.charge_type)))) AS tipo_cargo,\\n    UPPER(LEFT(TRIM(b.payment_status), 1)) + LOWER(SUBSTRING(TRIM(b.payment_status), 2, LEN(TRIM(b.payment_status)))) AS estado_pago\\nFROM silver.billing b\\nWHERE b.charge_type IS NOT NULL\\n  AND TRIM(b.charge_type) <> \\'\\'\\n  AND b.payment_status IS NOT NULL\\n  AND TRIM(b.payment_status) <> \\'\\'',",
+				"     format: 'query') ~> source1",
+				"source1 derive(tipo_cargo = trim(tipo_cargo),",
+				"          estado_pago = trim(estado_pago)) ~> derivedColumn1",
+				"derivedColumn1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          servicio_cargo_key as integer,",
+				"          tipo_cargo as string,",
+				"          estado_pago as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          tipo_cargo,",
+				"          estado_pago",
+				"     )) ~> sink1"
+			]
+		}
+	}
+}

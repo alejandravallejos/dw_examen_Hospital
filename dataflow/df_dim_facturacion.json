@@ -15,8 +15,23 @@
 					"name": "source1"
 				}
 			],
-			"sinks": [],
-			"transformations": [],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "gold_facturacion",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "derivedColumn2"
+				}
+			],
 			"scriptLines": [
 				"source(output(",
 				"          billing_id_bk as integer,",
@@ -31,8 +46,47 @@
 				"     allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     isolationLevel: 'READ_UNCOMMITTED',",
-				"     query: 'SELECT\\n    b.billing_id AS billing_id_bk,\\n    b.admission_id AS admission_id_bk,\\n    dp.paciente_key,\\n    dd.departamento_key,\\n    dsc.servicio_cargo_key,\\n    CASE\\n        WHEN b.payment_date IS NULL THEN NULL\\n        ELSE CAST(FORMAT(b.payment_date, \\'yyyyMMdd\\') AS INT)\\n    END AS fecha_pago_key,\\n    CAST(b.amount AS DECIMAL(12, 2)) AS monto_facturado,\\n    CAST(1 AS INT) AS conteo_transacciones\\nFROM silver.billing b\\nINNER JOIN silver.admissions a\\n    ON a.admission_id = b.admission_id\\nINNER JOIN gold.dim_paciente dp\\n    ON dp.patient_id_bk = a.patient_id\\nINNER JOIN gold.dim_departamento dd\\n    ON dd.nombre_departamento = a.department\\nINNER JOIN gold.dim_servicio_cargo dsc\\n    ON dsc.tipo_cargo = b.charge_type\\n   AND dsc.estado_pago = b.payment_status',",
-				"     format: 'query') ~> source1"
+				"     query: 'SELECT\\n    b.billing_id AS billing_id_bk,\\n    b.admission_id AS admission_id_bk,\\n    dp.paciente_key,\\n    dd.departamento_key,\\n    dsc.servicio_cargo_key,\\n    CASE\\n        WHEN b.payment_date IS NULL THEN NULL\\n        ELSE CAST(FORMAT(b.payment_date, \\'yyyyMMdd\\') AS INT)\\n    END AS fecha_pago_key,\\n    CAST(b.amount AS DECIMAL(12, 2)) AS monto_facturado,\\n    CAST(1 AS INT) AS conteo_transacciones\\nFROM silver.billing b\\nINNER JOIN silver.admissions a\\n    ON a.admission_id = b.admission_id\\nINNER JOIN gold.dim_paciente dp\\n    ON dp.patient_id_bk = a.patient_id\\nINNER JOIN gold.dim_departamento dd\\n    ON LOWER(TRIM(dd.nombre_departamento)) = LOWER(TRIM(a.department))\\nINNER JOIN gold.dim_servicio_cargo dsc\\n    ON LOWER(TRIM(dsc.tipo_cargo)) = LOWER(TRIM(b.charge_type))\\n   AND LOWER(TRIM(dsc.estado_pago)) = LOWER(TRIM(b.payment_status))',",
+				"     format: 'query') ~> source1",
+				"source1 derive(billing_id_bk = toInteger(billing_id_bk),",
+				"          admission_id_bk = toInteger(admission_id_bk),",
+				"          paciente_key = toInteger(paciente_key),",
+				"          departamento_key = toInteger(departamento_key)) ~> derivedColumn1",
+				"derivedColumn1 derive(servicio_cargo_key = toInteger(servicio_cargo_key),",
+				"          fecha_pago_key = iif(isNull(fecha_pago_key), toInteger(null()), toInteger(fecha_pago_key)),",
+				"          monto_facturado = toDecimal(monto_facturado, 12, 2),",
+				"          conteo_transacciones = toInteger(conteo_transacciones)) ~> derivedColumn2",
+				"derivedColumn2 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          facturacion_key as long,",
+				"          billing_id_bk as integer,",
+				"          admission_id_bk as integer,",
+				"          paciente_key as integer,",
+				"          departamento_key as integer,",
+				"          servicio_cargo_key as integer,",
+				"          fecha_pago_key as integer,",
+				"          monto_facturado as decimal(12,2),",
+				"          conteo_transacciones as integer",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          billing_id_bk,",
+				"          admission_id_bk,",
+				"          paciente_key,",
+				"          departamento_key,",
+				"          servicio_cargo_key,",
+				"          fecha_pago_key,",
+				"          monto_facturado,",
+				"          conteo_transacciones",
+				"     )) ~> sink1"
 			]
 		}
 	}
