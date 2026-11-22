@@ -27,6 +27,9 @@
 			"transformations": [
 				{
 					"name": "derivedColumn1"
+				},
+				{
+					"name": "Modificarfila1"
 				}
 			],
 			"scriptLines": [
@@ -47,7 +50,8 @@
 				"          patient_id = toInteger(patient_id),",
 				"          attending_doctor_id = iif(isNull(attending_doctor_id), toInteger(null()), toInteger(attending_doctor_id)),",
 				"          department = iif(isNull(department) || trim(department) == '', 'General', trim(department))) ~> derivedColumn1",
-				"derivedColumn1 sink(allowSchemaDrift: true,",
+				"derivedColumn1 alterRow() ~> Modificarfila1",
+				"Modificarfila1 sink(allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     input(",
 				"          admission_id as integer,",
@@ -58,9 +62,9 @@
 				"          attending_doctor_id as integer",
 				"     ),",
 				"     deletable:false,",
-				"     insertable:true,",
+				"     insertable:false,",
 				"     updateable:false,",
-				"     upsertable:false,",
+				"     upsertable:true,",
 				"     format: 'table',",
 				"     skipDuplicateMapInputs: true,",
 				"     skipDuplicateMapOutputs: true,",
