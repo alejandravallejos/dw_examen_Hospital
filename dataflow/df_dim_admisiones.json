@@ -13,6 +13,13 @@
 						"type": "DatasetReference"
 					},
 					"name": "source1"
+				},
+				{
+					"dataset": {
+						"referenceName": "gold_admisiones",
+						"type": "DatasetReference"
+					},
+					"name": "source2"
 				}
 			],
 			"sinks": [
@@ -30,6 +37,9 @@
 				},
 				{
 					"name": "derivedColumn2"
+				},
+				{
+					"name": "lookup1"
 				}
 			],
 			"scriptLines": [
@@ -49,6 +59,22 @@
 				"     isolationLevel: 'READ_UNCOMMITTED',",
 				"     query: 'SELECT\\n    a.admission_id AS admission_id_bk,\\n    COALESCE(dp.paciente_key, -1) AS paciente_key,\\n    COALESCE(dd.departamento_key, -1) AS departamento_key,\\n    COALESCE(dg.diagnostico_key, -1) AS diagnostico_key,\\n    CAST(CONVERT(VARCHAR(8), a.admission_date, 112) AS INT) AS fecha_ingreso_key,\\n    CAST(CONVERT(VARCHAR(8), a.discharge_date, 112) AS INT) AS fecha_alta_key,\\n    a.attending_doctor_id AS medico_id,\\n    CASE\\n        WHEN a.discharge_date IS NOT NULL\\n         AND a.discharge_date >= a.admission_date\\n            THEN DATEDIFF(DAY, a.admission_date, a.discharge_date)\\n        ELSE 0\\n    END AS dias_estancia,\\n    CAST(1 AS INT) AS conteo_admisiones\\nFROM silver.admissions a\\nLEFT JOIN gold.dim_paciente dp\\n    ON dp.patient_id_bk = a.patient_id\\nLEFT JOIN gold.dim_departamento dd\\n    ON dd.nombre_departamento = a.department\\nOUTER APPLY (\\n    SELECT TOP 1 d.diagnostico_key\\n    FROM silver.diagnoses sd\\n    INNER JOIN gold.dim_diagnostico d\\n        ON d.codigo_icd = sd.icd_code\\n    WHERE sd.admission_id = a.admission_id\\n    ORDER BY sd.diagnosis_id\\n) dg',",
 				"     format: 'query') ~> source1",
+				"source(output(",
+				"          admision_key as long,",
+				"          admission_id_bk as integer,",
+				"          paciente_key as integer,",
+				"          departamento_key as integer,",
+				"          diagnostico_key as integer,",
+				"          fecha_ingreso_key as integer,",
+				"          fecha_alta_key as integer,",
+				"          medico_id as integer,",
+				"          dias_estancia as integer,",
+				"          conteo_admisiones as integer",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> source2",
 				"source1 derive(paciente_key = toInteger(paciente_key),",
 				"          departamento_key = toInteger(departamento_key),",
 				"          diagnostico_key = toInteger(diagnostico_key),",
@@ -57,7 +83,11 @@
 				"          medico_id = toInteger(medico_id),",
 				"          dias_estancia = toInteger(dias_estancia),",
 				"          conteo_admisiones = toInteger(conteo_admisiones)) ~> derivedColumn2",
-				"derivedColumn2 sink(allowSchemaDrift: true,",
+				"derivedColumn2, source2 lookup(derivedColumn1@paciente_key == source2@paciente_key,",
+				"     multiple: false,",
+				"     pickup: 'any',",
+				"     broadcast: 'auto')~> lookup1",
+				"lookup1 sink(allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     input(",
 				"          admision_key as long,",

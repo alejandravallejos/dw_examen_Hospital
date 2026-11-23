@@ -146,7 +146,7 @@
 				"          mes_corto,",
 				"          semana_anio,",
 				"          dia_mes,",
-				"          dia_semana = dia_mes,",
+				"          dia_semana,",
 				"          dia_nombre,",
 				"          es_fin_de_semana",
 				"     )) ~> sink1"
