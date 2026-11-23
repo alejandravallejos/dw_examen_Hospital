@@ -27,6 +27,9 @@
 			"transformations": [
 				{
 					"name": "derivedColumn1"
+				},
+				{
+					"name": "filter1"
 				}
 			],
 			"scriptLines": [
@@ -46,8 +49,10 @@
 				"source1 derive(admission_id = toInteger(admission_id),",
 				"          patient_id = toInteger(patient_id),",
 				"          attending_doctor_id = iif(isNull(attending_doctor_id), toInteger(null()), toInteger(attending_doctor_id)),",
-				"          department = iif(isNull(department) || trim(department) == '', 'General', trim(department))) ~> derivedColumn1",
-				"derivedColumn1 sink(allowSchemaDrift: true,",
+				"          department = iif(isNull(department) || trim(department) == '', 'General', trim(department)),",
+				"          admission_date = coalesce(   toDate(trim(replace(toString(admission_date), '\"', '')), 'yyyy-MM-dd'),   toDate(trim(replace(toString(admission_date), '\"', '')), 'M-d-yy'),   toDate(trim(replace(toString(admission_date), '\"', '')), 'M/d/yy'),   toDate(trim(replace(toString(admission_date), '\"', '')), 'M-d-yyyy'),   toDate(trim(replace(toString(admission_date), '\"', '')), 'd-MMM-yyyy'),   toDate(trim(replace(toString(admission_date), '\"', '')), 'MMMM d, yyyy') )) ~> derivedColumn1",
+				"derivedColumn1 filter(!isNull(admission_date) && toInteger(patient_id) <= 1015) ~> filter1",
+				"filter1 sink(allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     input(",
 				"          admission_id as integer,",
@@ -68,7 +73,7 @@
 				"     mapColumn(",
 				"          admission_id,",
 				"          patient_id,",
-				"          admission_date,",
+				"          admission_date = department,",
 				"          discharge_date,",
 				"          department,",
 				"          attending_doctor_id",
