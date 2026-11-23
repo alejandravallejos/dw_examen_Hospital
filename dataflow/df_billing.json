@@ -13,6 +13,13 @@
 						"type": "DatasetReference"
 					},
 					"name": "source1"
+				},
+				{
+					"dataset": {
+						"referenceName": "silver_admissions",
+						"type": "DatasetReference"
+					},
+					"name": "source2"
 				}
 			],
 			"sinks": [
@@ -30,6 +37,9 @@
 				},
 				{
 					"name": "filter1"
+				},
+				{
+					"name": "exists1"
 				}
 			],
 			"scriptLines": [
@@ -46,9 +56,25 @@
 				"     isolationLevel: 'READ_UNCOMMITTED',",
 				"     query: 'SELECT\\n    billing_id,\\n    admission_id,\\n    CASE\\n        WHEN charge_type IS NULL OR LTRIM(RTRIM(CAST(charge_type AS VARCHAR(100)))) = \\'\\'\\n            THEN \\'No Especificado\\'\\n        ELSE UPPER(LEFT(LTRIM(RTRIM(CAST(charge_type AS VARCHAR(100)))), 1))\\n             + LOWER(SUBSTRING(LTRIM(RTRIM(CAST(charge_type AS VARCHAR(100)))), 2, LEN(LTRIM(RTRIM(CAST(charge_type AS VARCHAR(100)))))))\\n    END AS charge_type,\\n    CASE\\n        WHEN payment_status IS NULL OR LTRIM(RTRIM(CAST(payment_status AS VARCHAR(100)))) = \\'\\'\\n            THEN \\'No Especificado\\'\\n        ELSE UPPER(LEFT(LTRIM(RTRIM(CAST(payment_status AS VARCHAR(100)))), 1))\\n             + LOWER(SUBSTRING(LTRIM(RTRIM(CAST(payment_status AS VARCHAR(100)))), 2, LEN(LTRIM(RTRIM(CAST(payment_status AS VARCHAR(100)))))))\\n    END AS payment_status,\\n    TRY_CONVERT(\\n        DECIMAL(12, 2),\\n        LTRIM(RTRIM(\\n            REPLACE(\\n                REPLACE(\\n                    REPLACE(\\n                        REPLACE(CAST(amount AS VARCHAR(60)), \\'USD\\', \\'\\'),\\n                        \\'$\\', \\'\\'\\n                    ),\\n                    \\',\\', \\'\\'\\n                ),\\n                CHAR(160), \\'\\'\\n            )\\n        ))\\n    ) AS amount,\\n    COALESCE(\\n        TRY_CONVERT(DATE, LTRIM(RTRIM(CAST(payment_date AS VARCHAR(60)))), 23),\\n        TRY_CONVERT(DATE, LTRIM(RTRIM(CAST(payment_date AS VARCHAR(60)))), 101),\\n        TRY_CONVERT(DATE, LTRIM(RTRIM(CAST(payment_date AS VARCHAR(60)))), 110),\\n        TRY_CONVERT(DATE, LTRIM(RTRIM(CAST(payment_date AS VARCHAR(60)))), 107),\\n        TRY_CONVERT(DATE, REPLACE(LTRIM(RTRIM(CAST(payment_date AS VARCHAR(60)))), \\'-\\', \\' \\'), 106),\\n        TRY_PARSE(LTRIM(RTRIM(CAST(payment_date AS VARCHAR(60)))) AS DATE USING \\'en-US\\')\\n    ) AS payment_date\\nFROM bronze.billing\\nWHERE billing_id IS NOT NULL',",
 				"     format: 'query') ~> source1",
-				"source1 derive(amount = toDecimal(replace(replace(toString(amount), '$', ''), ',', ''), 10, 2)) ~> derivedColumn1",
+				"source(output(",
+				"          admission_id as integer,",
+				"          patient_id as integer,",
+				"          admission_date as date,",
+				"          discharge_date as date,",
+				"          department as string,",
+				"          attending_doctor_id as integer",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> source2",
+				"source1 derive(amount = toDecimal(replace(replace(toString(amount), '$', ''), ',', ''), 10, 2),",
+				"          admission_id = toInteger(trim(admission_id))) ~> derivedColumn1",
 				"derivedColumn1 filter(!isNull(amount)) ~> filter1",
-				"filter1 sink(allowSchemaDrift: true,",
+				"filter1, source2 exists(derivedColumn1@admission_id == source2@admission_id,",
+				"     negate:false,",
+				"     broadcast: 'auto')~> exists1",
+				"exists1 sink(allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     input(",
 				"          billing_id as integer,",

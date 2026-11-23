@@ -47,6 +47,12 @@
 				},
 				{
 					"name": "derivedColumn1"
+				},
+				{
+					"name": "aggregate1"
+				},
+				{
+					"name": "filter1"
 				}
 			],
 			"scriptLines": [
@@ -89,7 +95,22 @@
 				"          semana_anio = toShort(weekOfYear(fecha)),",
 				"          dia_nombre = case(dayOfWeek(fecha) == 2, 'Lunes', dayOfWeek(fecha) == 3, 'Martes', dayOfWeek(fecha) == 4, 'Miércoles', dayOfWeek(fecha) == 5, 'Jueves', dayOfWeek(fecha) == 6, 'Viernes', dayOfWeek(fecha) == 7, 'Sábado', 'Domingo'),",
 				"          es_fin_de_semana = iif(dayOfWeek(fecha) == 1 || dayOfWeek(fecha) == 7, true(), false())) ~> derivedColumn1",
-				"derivedColumn1 sink(allowSchemaDrift: true,",
+				"derivedColumn1 aggregate(groupBy(fecha_key),",
+				"     fecha = first(fecha),",
+				"          anio = first(anio),",
+				"          mes = first(mes),",
+				"          dia_mes = first(dia_mes),",
+				"          dia_semana = first(dia_semana),",
+				"          mes_nombre = first(mes_nombre),",
+				"          mes_corto = first(mes_corto),",
+				"          semana_anio = first(semana_anio),",
+				"          dia_nombre = first(dia_nombre),",
+				"          es_fin_de_semana = first(es_fin_de_semana),",
+				"          fecha_completa = first(fecha_completa),",
+				"          trimestre = first(trimestre),",
+				"          trimestre_nombre = first(trimestre_nombre)) ~> aggregate1",
+				"aggregate1 filter(!isNull(fecha_key)) ~> filter1",
+				"filter1 sink(allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     input(",
 				"          fecha_key as integer,",
@@ -125,7 +146,7 @@
 				"          mes_corto,",
 				"          semana_anio,",
 				"          dia_mes,",
-				"          dia_semana,",
+				"          dia_semana = dia_mes,",
 				"          dia_nombre,",
 				"          es_fin_de_semana",
 				"     )) ~> sink1"

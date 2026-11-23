@@ -73,7 +73,7 @@
 				"     mapColumn(",
 				"          admission_id,",
 				"          patient_id,",
-				"          admission_date = department,",
+				"          admission_date,",
 				"          discharge_date,",
 				"          department,",
 				"          attending_doctor_id",
