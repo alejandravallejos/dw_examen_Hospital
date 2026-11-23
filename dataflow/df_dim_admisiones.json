@@ -16,10 +16,17 @@
 				},
 				{
 					"dataset": {
-						"referenceName": "gold_admisiones",
+						"referenceName": "silver_admissions",
 						"type": "DatasetReference"
 					},
 					"name": "source2"
+				},
+				{
+					"dataset": {
+						"referenceName": "gold_departamento",
+						"type": "DatasetReference"
+					},
+					"name": "source3"
 				}
 			],
 			"sinks": [
@@ -40,6 +47,9 @@
 				},
 				{
 					"name": "lookup1"
+				},
+				{
+					"name": "lookup2"
 				}
 			],
 			"scriptLines": [
@@ -60,34 +70,39 @@
 				"     query: 'SELECT\\n    a.admission_id AS admission_id_bk,\\n    COALESCE(dp.paciente_key, -1) AS paciente_key,\\n    COALESCE(dd.departamento_key, -1) AS departamento_key,\\n    COALESCE(dg.diagnostico_key, -1) AS diagnostico_key,\\n    CAST(CONVERT(VARCHAR(8), a.admission_date, 112) AS INT) AS fecha_ingreso_key,\\n    CAST(CONVERT(VARCHAR(8), a.discharge_date, 112) AS INT) AS fecha_alta_key,\\n    a.attending_doctor_id AS medico_id,\\n    CASE\\n        WHEN a.discharge_date IS NOT NULL\\n         AND a.discharge_date >= a.admission_date\\n            THEN DATEDIFF(DAY, a.admission_date, a.discharge_date)\\n        ELSE 0\\n    END AS dias_estancia,\\n    CAST(1 AS INT) AS conteo_admisiones\\nFROM silver.admissions a\\nLEFT JOIN gold.dim_paciente dp\\n    ON dp.patient_id_bk = a.patient_id\\nLEFT JOIN gold.dim_departamento dd\\n    ON dd.nombre_departamento = a.department\\nOUTER APPLY (\\n    SELECT TOP 1 d.diagnostico_key\\n    FROM silver.diagnoses sd\\n    INNER JOIN gold.dim_diagnostico d\\n        ON d.codigo_icd = sd.icd_code\\n    WHERE sd.admission_id = a.admission_id\\n    ORDER BY sd.diagnosis_id\\n) dg',",
 				"     format: 'query') ~> source1",
 				"source(output(",
-				"          admision_key as long,",
-				"          admission_id_bk as integer,",
-				"          paciente_key as integer,",
-				"          departamento_key as integer,",
-				"          diagnostico_key as integer,",
-				"          fecha_ingreso_key as integer,",
-				"          fecha_alta_key as integer,",
-				"          medico_id as integer,",
-				"          dias_estancia as integer,",
-				"          conteo_admisiones as integer",
+				"          admission_id as integer,",
+				"          patient_id as integer,",
+				"          admission_date as date,",
+				"          discharge_date as date,",
+				"          department as string,",
+				"          attending_doctor_id as integer",
 				"     ),",
 				"     allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     isolationLevel: 'READ_UNCOMMITTED',",
 				"     format: 'table') ~> source2",
-				"source1 derive(paciente_key = toInteger(paciente_key),",
-				"          departamento_key = toInteger(departamento_key),",
-				"          diagnostico_key = toInteger(diagnostico_key),",
-				"          fecha_ingreso_key = toInteger(fecha_ingreso_key)) ~> derivedColumn1",
+				"source(output(",
+				"          departamento_key as integer,",
+				"          nombre_departamento as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> source3",
+				"source1 derive(fecha_ingreso_key = toInteger(fecha_ingreso_key)) ~> derivedColumn1",
 				"derivedColumn1 derive(fecha_alta_key = iif(isNull(fecha_alta_key), toInteger(null()), toInteger(fecha_alta_key)),",
 				"          medico_id = toInteger(medico_id),",
 				"          dias_estancia = toInteger(dias_estancia),",
 				"          conteo_admisiones = toInteger(conteo_admisiones)) ~> derivedColumn2",
-				"derivedColumn2, source2 lookup(derivedColumn1@paciente_key == source2@paciente_key,",
+				"derivedColumn2, source2 lookup(paciente_key == patient_id,",
 				"     multiple: false,",
 				"     pickup: 'any',",
 				"     broadcast: 'auto')~> lookup1",
-				"lookup1 sink(allowSchemaDrift: true,",
+				"lookup1, source3 lookup(department == nombre_departamento,",
+				"     multiple: false,",
+				"     pickup: 'any',",
+				"     broadcast: 'auto')~> lookup2",
+				"lookup2 sink(allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     input(",
 				"          admision_key as long,",
